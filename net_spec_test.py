@@ -47,7 +47,7 @@ def WritePrototxt(test_size, batch_size, layers, numClasses, act, dropout):
 	with open('deploy.prototxt','w') as f:
 		print >>f, MakeNetwork('test.txt',test_size,layers,numClasses,True, act, False)	
 
-def testConfig(numFolds,iters,path,solver):
+def testConfig(numFolds,iters,path,solverpath):
 
 	caffe.set_mode_gpu()
 
@@ -70,7 +70,7 @@ def testConfig(numFolds,iters,path,solver):
 
 		#Set iters
 		with open('solver_new.prototxt','w') as new_file:
-			with open(solver,'r') as old_file:
+			with open(solverpath,'r') as old_file:
 				for line in old_file:
 					if 'max_iter:' in line:
 						new_file.write('max_iter:'+str(iters)+"\n")
@@ -78,10 +78,10 @@ def testConfig(numFolds,iters,path,solver):
 						new_file.write('snapshot:'+str(iters)+"\n")
 					else:
 						new_file.write(line)
-		os.rename('solver_new.prototxt',solver)
+		os.rename('solver_new.prototxt',solverpath)
 
 		#Get Solver
-		solver = caffe.SGDSolver(solver)
+		solver = caffe.SGDSolver(solverpath)
 		
 		#Train network
 		solver.solve()
