@@ -6,6 +6,7 @@ from  sklearn.metrics import matthews_corrcoef,auc,roc_auc_score,recall_score,pr
 import csv
 import numpy as np
 import time
+import os
 
 def MakeNetwork(db, batch_size, layers, numClasses, deploy, act, dropout):
 
@@ -17,7 +18,7 @@ def MakeNetwork(db, batch_size, layers, numClasses, deploy, act, dropout):
 	test = 0
 	for x in range(0,len(layers)):
 		top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'))
-		print net_spec.params
+
 		if(act == 1):
 			top = L.ReLU(top,in_place=True)
 		elif(act == 2):
@@ -38,20 +39,20 @@ def MakeNetwork(db, batch_size, layers, numClasses, deploy, act, dropout):
 		prob = L.Softmax(output)
 		return to_proto(prob)
 
-def WritePrototxt(test_size, layers, numClasses, act, dropout,folder):
-	with open(folder+'train.prototxt','w') as f:
-		print >>f, MakeNetwork('train.txt',500,layers,numClasses, False, act, dropout)
-	with open(folder+'test.prototxt','w') as f:
-		print >>f, MakeNetwork('test.txt',512,layers,numClasses, False, act, False)
-	with open(folder+'deploy.prototxt','w') as f:
+def WritePrototxt(test_size, batch_size, layers, numClasses, act, dropout):
+	with open('train.prototxt','w') as f:
+		print >>f, MakeNetwork('train.txt',batch_size,layers,numClasses, False, act, dropout)
+	with open('test.prototxt','w') as f:
+		print >>f, MakeNetwork('test.txt',batch_size,layers,numClasses, False, act, False)
+	with open('deploy.prototxt','w') as f:
 		print >>f, MakeNetwork('test.txt',test_size,layers,numClasses,True, act, False)	
 
-def testConfig(numFolds,iters,folder):
-	
+def testConfig(numFolds,iters,path,solver):
+
 	caffe.set_mode_gpu()
 
-	MODEL_FILE = folder + 'deploy.prototxt'
-	PRETRAINED = folder + 'KDD__iter_' + str(iters) + '.caffemodel'
+	MODEL_FILE = 'deploy.prototxt'
+	PRETRAINED = 'KDD__iter_' + str(iters) + '.caffemodel'
 	acc=0
 	mcc=0
 	RAUC=0
@@ -59,18 +60,31 @@ def testConfig(numFolds,iters,folder):
 	Precision=0
 	F1_score = 0
 	for x in range(0,numFolds):
+		#Write text files
 		print "Writing txt files"
-		with open(folder+'train.txt', 'w') as f:
-			f.write('train_' + str(x+1) + '.h5' + '\n')
-		with open(folder+'test.txt', 'w') as f:
-			f.write('test_' + str(x+1) + '.h5' + '\n')
+		with open('train.txt', 'w') as f:
+			f.write(path+'train_' + str(x+1) + '.h5' + '\n')
+		with open('test.txt', 'w') as f:
+			f.write(path+'test_' + str(x+1) + '.h5' + '\n')
 		print "Done"
 
+		#Set iters
+		with open('solver_new.prototxt','w') as new_file:
+			with open(solver,'r') as old_file:
+				for line in old_file:
+					if 'max_iter:' in line:
+						new_file.write('max_iter:'+str(iters)+"\n")
+					elif 'snapshot:' in line:
+						new_file.write('snapshot:'+str(iters)+"\n")
+					else:
+						new_file.write(line)
+		os.rename('solver_new.prototxt',solver)
+
 		#Get Solver
-		solver = caffe.SGDSolver(folder+'solver.prototxt')
+		solver = caffe.SGDSolver(solver)
 		
-		#Solve for given iterations
-		solver.step(iters)
+		#Train network
+		solver.solve()
 
 		#Load network
 		net = caffe.Net(MODEL_FILE, PRETRAINED, caffe.TEST)
@@ -84,7 +98,7 @@ def testConfig(numFolds,iters,folder):
 		#Read test labels
 		test_size = 0
 		y_test=[]
-		reader=csv.reader(open(folder + 'test_'+str(x+1)+'.csv',"rU"),delimiter=',')
+		reader=csv.reader(open(path + 'test_'+str(x+1)+'.csv',"rU"),delimiter=',')
 		for row in reader:
 			y_test.append(int(row[0]))
 			test_size = test_size+1
@@ -108,14 +122,27 @@ def testConfig(numFolds,iters,folder):
 	results = [acc/numFolds,mcc/numFolds,RAUC/numFolds,Recall/numFolds,Precision/numFolds,F1_score/numFolds]
 	return results
 
+def getTrainSize(path):
+	reader=csv.reader(open(path+'train_1.csv',"rU"))
+	result = 0
+	for row in reader:
+		result = result+1
+	return result
+
+def getTestSize(path):
+	reader=csv.reader(open(path+'test_1.csv',"rU"))
+	result = 0
+	for row in reader:
+		result = result+1
+	return result
+
 t1=time.time()
 
 res = []
 
-#No Sigmoid
+WritePrototxt(36163,512,[5,15],2,3,True)
+res.append(testConfig(1, 1500,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt'))
 
-WritePrototxt(36163,[5,10],2,3,False,'blah/')
-res.append(testConfig(1, 1000,'blah/'))
 
 t2=time.time()
 
@@ -123,9 +150,8 @@ print res
 print "Time Elapsed: ",t2-t1
 
 res = np.asarray(res)
-np.savetxt('results2.csv',res,fmt='%.10f',delimiter=',')
 
-writer = csv.wrtier(open(results.csv,'wb'),delimiter=",")
-writer.writerow("Acc,MCC,RAUC,Recall,Precision,F1")
-for row in len(res):
-	writer.writerow("DNN_"+str(row)+","+res[row])
+writer = csv.writer(open('results.csv','wb'),delimiter=",")
+writer.writerow(['Acc','MCC','RAUC','Recall','Precision','F1'])
+for row in range(0,len(res)):
+	writer.writerow(res[row])
