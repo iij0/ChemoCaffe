@@ -27,7 +27,7 @@ class CaffeNet:
 		self._test_interval=test_interval
 		self._data_path=data
 		self._solver=solver
-		self._writer.writerow(['Epochs','Acc','MCC','RAUC','Recall','Precision','F1'])
+		self._writer.writerow(['Epochs','Configuration','Acc','MCC','RAUC','Recall','Precision','F1'])
 		self._epochs=epochs
 		self._batch_size=batch_size
 		self.getDataSize()
@@ -177,12 +177,12 @@ class CaffeNet:
 				Precision+=temp[x][5]
 				F1_score+=temp[x][6]
 
-			self._writer.writerow([epochs+1,acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
+			self._writer.writerow([epochs+1,str(layers)+'	'+str(act)+'	'+str(dropout)+'	'+str(L2),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
 
 
 if __name__ == '__main__':
 	t1=time.time()
-	test = CaffeNet(2,10,1,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt')
+	test = CaffeNet(2,3,1,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt')
 	test.testConfig([10,10],2,1,False,True)
 	test.testConfig([5,10],2,1,False,True)
 	t2=time.time()
