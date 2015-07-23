@@ -71,8 +71,8 @@ class CaffeNet:
 				top = L.TanH(top, in_place=True)
 			else:
 				print "Error, invalid activation function choice "
-			if(dropout==True):
-				top = L.Dropout(top, in_place=True, dropout_ratio = 0.5)
+			if(dropout!=0):
+				top = L.Dropout(top, in_place=True, dropout_ratio = dropout)
 	
 		#Add Output Layers
 		output = L.InnerProduct(top, num_output=numClasses,weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'))
@@ -87,9 +87,9 @@ class CaffeNet:
 		with open('train.prototxt','w') as f:
 			print >>f, self.MakeNetwork('train.txt',self._batch_size,layers,numClasses,False,act,dropout,L2)
 		with open('test.prototxt','w') as f:
-			print >>f, self.MakeNetwork('test.txt',self._batch_size,layers,numClasses,False,act,False,L2)
+			print >>f, self.MakeNetwork('test.txt',self._batch_size,layers,numClasses,False,act,0,L2)
 		with open('deploy.prototxt','w') as f:
-			print >>f, self.MakeNetwork('test.txt',self._test_size,layers,numClasses,True,act,False,L2)	
+			print >>f, self.MakeNetwork('test.txt',self._test_size,layers,numClasses,True,act,0,L2)	
 	
 	def testConfig(self,layers,numClasses,act,dropout,L2):
 		self.WritePrototxt(layers,numClasses,act,dropout,L2)
@@ -190,6 +190,6 @@ class CaffeNet:
 if __name__ == '__main__':
 	t1=time.time()
 	test = CaffeNet(2,3,1,0.01,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt','/users/kmonaghan/caffe/Automation/results.csv')
-	test.testConfig([10,10],2,1,False,True)
+	test.testConfig([10,10],2,1,0.5,True)
 	t2=time.time()
 	print "Time Elapsed: ",t2-t1
