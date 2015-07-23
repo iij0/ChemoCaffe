@@ -7,31 +7,34 @@ import csv
 import numpy as np
 import time
 import os
-import math
 
 class CaffeNet:
 
 	_test_size=0
 	_batch_size=0
 	_epochs=0
+	_lr=0
 	_test_interval=0
 	_data_path= ""
 	_solver=""
-	_writer=csv.writer(open('results.csv','a'),delimiter=',')
+	_output=""
 	_folds=0
 	_train_size=0
 	_test_size=0
 
-	def __init__(self,folds,epochs,test_interval,batch_size,data,solver):
+	def __init__(self,folds,epochs,test_interval,lr,batch_size,data,solver,output):
 		self._folds=folds
 		self._test_interval=test_interval
 		self._data_path=data
 		self._solver=solver
-		self._writer.writerow(['Epochs','Configuration','Acc','MCC','RAUC','Recall','Precision','F1'])
+		self._output=output
 		self._epochs=epochs
+		self._lr=lr
 		self._batch_size=batch_size
 		self.getDataSize()
-
+		writer=csv.writer(open(output,'a'),delimiter=',')
+		writer.writerow(['Epochs','Configuration','Acc','MCC','RAUC','Recall','Precision','F1'])
+		writer.writerow(['Epochs','Layers','Activation','Dropout','L2','Acc','MCC','RAUC','Recall','Precision','F1'])
 	def getDataSize(self):
 		reader1=csv.reader(open(self._data_path+'train_1.csv',"rU"))
 		reader2=csv.reader(open(self._data_path+'test_1.csv',"rU"))
@@ -93,7 +96,7 @@ class CaffeNet:
 		caffe.set_mode_gpu()
 		MODEL_FILE = 'deploy.prototxt'
 
-		#Set iters
+		#Set iters & learning rate
 		with open('solver_new.prototxt','w') as new_file:
 			with open(self._solver,'r') as old_file:
 				for line in old_file:
@@ -101,6 +104,8 @@ class CaffeNet:
 						new_file.write('max_iter:'+str(self._epochs)+"\n")
 					elif 'snapshot:' in line:
 						new_file.write('snapshot:'+str(self._test_interval)+"\n")
+					elif 'base_lr:' in line:
+						new_file.write('base_lr:'+str(self._lr)+"\n")
 					else:
 						new_file.write(line)
 		os.rename('solver_new.prototxt',self._solver)
@@ -159,7 +164,8 @@ class CaffeNet:
 				F1_score=f1_score(y_test, y_pred,pos_label=1)
 
 				temp.append([self._test_interval*(x+1),acc,mcc,RAUC,Recall,Precision,F1_score])
-
+		
+		writer=csv.writer(open(self._output,'a'),delimiter=',')
 		for y in range(0,self._epochs/self._test_interval):
 			epochs=0
 			acc=0
@@ -177,13 +183,13 @@ class CaffeNet:
 				Precision+=temp[x][5]
 				F1_score+=temp[x][6]
 
-			self._writer.writerow([epochs+1,str(layers)+'	'+str(act)+'	'+str(dropout)+'	'+str(L2),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
+			acts = ["ReLU","Sigmoid","TanH"]
+			writer.writerow([epochs+1,str(layers),acts[act-1],str(dropout),str(L2),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
 
 
 if __name__ == '__main__':
 	t1=time.time()
-	test = CaffeNet(2,3,1,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt')
+	test = CaffeNet(2,3,1,0.01,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt','/users/kmonaghan/caffe/Automation/results.csv')
 	test.testConfig([10,10],2,1,False,True)
-	test.testConfig([5,10],2,1,False,True)
 	t2=time.time()
 	print "Time Elapsed: ",t2-t1
