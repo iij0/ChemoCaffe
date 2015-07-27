@@ -1,3 +1,10 @@
+"""
+@Author: Keith Monaghan
+@Date: 7/24/15
+@Title: ChemoCaffe
+@Description: Automates the testing of multiple network configurations in Caffe
+"""
+
 from net_spec import layers as L, params as P, to_proto
 import net_spec
 from caffe.proto import caffe_pb2
@@ -22,6 +29,8 @@ class CaffeNet:
 	_train_size=0
 	_test_size=0
 
+	#Constructor 
+	#Initializes variables which are usually constant across different network configurations
 	def __init__(self,folds,epochs,test_interval,lr,batch_size,data,solver,output):
 		self._folds=folds
 		self._test_interval=test_interval
@@ -33,8 +42,11 @@ class CaffeNet:
 		self._batch_size=batch_size
 		self.getDataSize()
 		writer=csv.writer(open(output,'a'),delimiter=',')
-		writer.writerow(['Epochs','Configuration','Acc','MCC','RAUC','Recall','Precision','F1'])
 		writer.writerow(['Epochs','Layers','Activation','Dropout','L2','Acc','MCC','RAUC','Recall','Precision','F1'])
+
+	#Helper Function for constructor
+	#Reads size of test data set 
+	#Converts epochs to iterations
 	def getDataSize(self):
 		reader1=csv.reader(open(self._data_path+'train_1.csv',"rU"))
 		reader2=csv.reader(open(self._data_path+'test_1.csv',"rU"))
@@ -48,7 +60,7 @@ class CaffeNet:
 		self._epochs = (self._epochs*self._train_size)/self._batch_size
 		self._test_interval = (self._test_interval*self._train_size)/self._batch_size
 
-
+	#Builds the network with specified hyperparameters
 	def MakeNetwork(self,db,batch_size,layers,numClasses,deploy,act,dropout,L2):
 	
 		#Create Data layer
@@ -83,6 +95,8 @@ class CaffeNet:
 			prob = L.Softmax(output)
 			return to_proto(prob)
 	
+	#Generates train, test, and deploy network definitions
+	#Writes networks to .prototxt format to be read by Caffe
 	def WritePrototxt(self,layers,numClasses,act,dropout,L2):
 		with open('train.prototxt','w') as f:
 			print >>f, self.MakeNetwork('train.txt',self._batch_size,layers,numClasses,False,act,dropout,L2)
@@ -91,12 +105,17 @@ class CaffeNet:
 		with open('deploy.prototxt','w') as f:
 			print >>f, self.MakeNetwork('test.txt',self._test_size,layers,numClasses,True,act,0,L2)	
 	
+	#Trains and evaluates the performance of a network across multiple folds
 	def testConfig(self,layers,numClasses,act,dropout,L2):
+		
+		#Generate .prototxt files
 		self.WritePrototxt(layers,numClasses,act,dropout,L2)
+		#Enable GPU Mode
 		caffe.set_mode_gpu()
+		
 		MODEL_FILE = 'deploy.prototxt'
 
-		#Set iters & learning rate
+		#Set iters & learning rate in solver file
 		with open('solver_new.prototxt','w') as new_file:
 			with open(self._solver,'r') as old_file:
 				for line in old_file:
@@ -109,12 +128,12 @@ class CaffeNet:
 					else:
 						new_file.write(line)
 		os.rename('solver_new.prototxt',self._solver)
-		res = []
+
 		temp = []
 
 		for i in range(0,self._folds):
 
-			#Write text files
+			#Write text files specifying the databse path
 			print "Writing txt files"
 			with open('train.txt', 'w') as f:
 				f.write(self._data_path+'train_' + str(i+1) + '.h5' + '\n')
@@ -163,9 +182,13 @@ class CaffeNet:
 				Precision=precision_score(y_test, y_pred,pos_label=1)
 				F1_score=f1_score(y_test, y_pred,pos_label=1)
 
+				#Store scores in temporary list
 				temp.append([self._test_interval*(x+1),acc,mcc,RAUC,Recall,Precision,F1_score])
 		
+		#Open output writer	in append mode	
 		writer=csv.writer(open(self._output,'a'),delimiter=',')
+		
+		#Average results for each test interval and print to output file
 		for y in range(0,self._epochs/self._test_interval):
 			epochs=0
 			acc=0
@@ -183,13 +206,18 @@ class CaffeNet:
 				Precision+=temp[x][5]
 				F1_score+=temp[x][6]
 
+			#Write output
 			acts = ["ReLU","Sigmoid","TanH"]
 			writer.writerow([epochs+1,str(layers),acts[act-1],str(dropout),str(L2),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
 
-
 if __name__ == '__main__':
 	t1=time.time()
+	
+	#Create instance of CaffeNet
 	test = CaffeNet(2,3,1,0.01,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt','/users/kmonaghan/caffe/Automation/results.csv')
+	
+	#Test the performance of a specific configuration
 	test.testConfig([10,10],2,1,0.5,True)
+	
 	t2=time.time()
 	print "Time Elapsed: ",t2-t1
