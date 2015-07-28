@@ -214,9 +214,11 @@ if __name__ == '__main__':
 	t1=time.time()
 	
 	#Create instance of CaffeNet
+	#(folds,epochs,test_interval,lr,batch_size,data,solver,output)
 	test = CaffeNet(2,3,1,0.01,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt','/users/kmonaghan/caffe/Automation/results.csv')
 	
 	#Test the performance of a specific configuration
+	#(layers,numClasses,act,dropout,L2)
 	test.testConfig([10,10],2,1,0.5,True)
 	
 	t2=time.time()
