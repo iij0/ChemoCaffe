@@ -42,7 +42,7 @@ class CaffeNet:
 		self._batch_size=batch_size
 		self.getDataSize()
 		writer=csv.writer(open(output,'a'),delimiter=',')
-		writer.writerow(['Epochs','Layers','Activation','Dropout','L2','Acc','MCC','RAUC','Recall','Precision','F1'])
+		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Acc','MCC','RAUC','Recall','Precision','F1'])
 
 	#Helper Function for constructor
 	#Reads size of test data set 
@@ -61,19 +61,23 @@ class CaffeNet:
 		self._test_interval = (self._test_interval*self._train_size)/self._batch_size
 
 	#Builds the network with specified hyperparameters
-	def MakeNetwork(self,db,batch_size,layers,numClasses,deploy,act,dropout,L2):
-	
+	def MakeNetwork(self,db,batch_size,layers,numClasses,deploy,act,input_dropout,hidden_dropout,L2,filler):
+		
+		fillers = ['xavier', 'gaussian']
 		#Create Data layer
 		data, label = L.HDF5Data(source=db,batch_size=batch_size,ntop=2)
 	
 		#Add hidden layers
 		top = data
+		if(input_dropout!=0):
+			top = L.Dropout(top, in_place=True, dropout_ratio = input_dropout)
+		
 		test = 0
 		for x in range(0,len(layers)):
 			if(L2):
-				top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'),param=[dict(decay_mult=1)])
+				top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type=fillers[filler-1]),bias_filler=dict(type=fillers[filler-1]),param=[dict(decay_mult=1)])
 			else:
-				top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'))
+				top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type=fillers[filler-1]),bias_filler=dict(type=fillers[filler-1]))
 	
 			if(act == 1):
 				top = L.ReLU(top,in_place=True)
@@ -83,11 +87,11 @@ class CaffeNet:
 				top = L.TanH(top, in_place=True)
 			else:
 				print "Error, invalid activation function choice "
-			if(dropout!=0):
-				top = L.Dropout(top, in_place=True, dropout_ratio = dropout)
+			if(hidden_dropout!=0):
+				top = L.Dropout(top, in_place=True, dropout_ratio = hidden_dropout)
 	
 		#Add Output Layers
-		output = L.InnerProduct(top, num_output=numClasses,weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'))
+		output = L.InnerProduct(top, num_output=numClasses,weight_filler=dict(type=fillers[filler-1]),bias_filler=dict(type=fillers[filler-1]))
 		if(deploy == False):
 			loss = L.SoftmaxWithLoss(output,label)
 			return to_proto(loss)	
@@ -97,19 +101,19 @@ class CaffeNet:
 	
 	#Generates train, test, and deploy network definitions
 	#Writes networks to .prototxt format to be read by Caffe
-	def WritePrototxt(self,layers,numClasses,act,dropout,L2):
+	def WritePrototxt(self,layers,numClasses,act,input_dropout,hidden_dropout,L2,filler):
 		with open('train.prototxt','w') as f:
-			print >>f, self.MakeNetwork('train.txt',self._batch_size,layers,numClasses,False,act,dropout,L2)
+			print >>f, self.MakeNetwork('train.txt',self._batch_size,layers,numClasses,False,act,input_dropout,hidden_dropout,L2,filler)
 		with open('test.prototxt','w') as f:
-			print >>f, self.MakeNetwork('test.txt',self._batch_size,layers,numClasses,False,act,0,L2)
+			print >>f, self.MakeNetwork('test.txt',self._batch_size,layers,numClasses,False,act,0,0,L2,filler)
 		with open('deploy.prototxt','w') as f:
-			print >>f, self.MakeNetwork('test.txt',self._test_size,layers,numClasses,True,act,0,L2)	
+			print >>f, self.MakeNetwork('test.txt',self._test_size,layers,numClasses,True,act,0,0,L2,filler)	
 	
 	#Trains and evaluates the performance of a network across multiple folds
-	def testConfig(self,layers,numClasses,act,dropout,L2):
+	def testConfig(self,layers,numClasses,act,input_dropout,hidden_dropout,L2,filler):
 		
 		#Generate .prototxt files
-		self.WritePrototxt(layers,numClasses,act,dropout,L2)
+		self.WritePrototxt(layers,numClasses,act,input_dropout,hidden_dropout,L2,filler)
 		#Enable GPU Mode
 		caffe.set_mode_gpu()
 		
@@ -208,7 +212,7 @@ class CaffeNet:
 
 			#Write output
 			acts = ["ReLU","Sigmoid","TanH"]
-			writer.writerow([epochs+1,str(layers),acts[act-1],str(dropout),str(L2),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
+			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
 
 if __name__ == '__main__':
 	t1=time.time()
@@ -218,8 +222,10 @@ if __name__ == '__main__':
 	test = CaffeNet(2,3,1,0.01,512,'/users/kmonaghan/caffe/Automation/','/users/kmonaghan/caffe/Automation/solver.prototxt','/users/kmonaghan/caffe/Automation/results.csv')
 	
 	#Test the performance of a specific configuration
-	#(layers,numClasses,act,dropout,L2)
-	test.testConfig([10,10],2,1,0.5,True)
+	#(layers,numClasses,act,input_dropout,hidden_dropout,L2,filler)
+	#filler==1 - xavier
+	#filler==2 - gaussian
+	test.testConfig([10,10],2,1,0.1,0.4,True,2)
 	
 	t2=time.time()
 	print "Time Elapsed: ",t2-t1
