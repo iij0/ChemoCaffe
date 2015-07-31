@@ -63,7 +63,6 @@ class CaffeNet:
 	#Builds the network with specified hyperparameters
 	def MakeNetwork(self,db,batch_size,layers,numClasses,deploy,act,input_dropout,hidden_dropout,L2,filler):
 		
-		fillers = ['xavier', 'gaussian']
 		#Create Data layer
 		data, label = L.HDF5Data(source=db,batch_size=batch_size,ntop=2)
 	
@@ -75,9 +74,17 @@ class CaffeNet:
 		test = 0
 		for x in range(0,len(layers)):
 			if(L2):
-				top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type=fillers[filler-1]),bias_filler=dict(type=fillers[filler-1]),param=[dict(decay_mult=1)])
+				if(filler==1):
+					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'),param=[dict(decay_mult=1)])
+				elif(filler==2):
+					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='gaussian',std=0.01),bias_filler=dict(type='gaussian',std=0.01),param=[dict(decay_mult=1)])
+
 			else:
-				top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type=fillers[filler-1]),bias_filler=dict(type=fillers[filler-1]))
+				if(filler==1):
+					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'))
+				elif(filler==2):
+					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='gaussian',std=0.01),bias_filler=dict(type='gaussian',std=0.01))
+
 	
 			if(act == 1):
 				top = L.ReLU(top,in_place=True)
@@ -91,7 +98,11 @@ class CaffeNet:
 				top = L.Dropout(top, in_place=True, dropout_ratio = hidden_dropout)
 	
 		#Add Output Layers
-		output = L.InnerProduct(top, num_output=numClasses,weight_filler=dict(type=fillers[filler-1]),bias_filler=dict(type=fillers[filler-1]))
+		if(filler==1):
+			output = L.InnerProduct(top, num_output=numClasses,weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'))
+		elif(filler==2):
+			output = L.InnerProduct(top, num_output=numClasses,weight_filler=dict(type='gaussian',std=0.01),bias_filler=dict(type='gaussian',std=0.01))
+
 		if(deploy == False):
 			loss = L.SoftmaxWithLoss(output,label)
 			return to_proto(loss)	
@@ -225,7 +236,7 @@ if __name__ == '__main__':
 	#(layers,numClasses,act,input_dropout,hidden_dropout,L2,filler)
 	#filler==1 - xavier
 	#filler==2 - gaussian
-	test.testConfig([10,10],2,1,0.1,0.4,True,2)
+	test.testConfig([10,10],2,1,0.1,0.4,True,1)
 	
 	t2=time.time()
 	print "Time Elapsed: ",t2-t1
