@@ -42,7 +42,7 @@ class CaffeNet:
 		self._batch_size=batch_size
 		self.getDataSize()
 		writer=csv.writer(open(output,'a'),delimiter=',')
-		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Acc','MCC','RAUC','Recall','Precision','F1'])
+		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','Acc','MCC','RAUC','Recall','Precision','F1'])
 
 	#Helper Function for constructor
 	#Reads size of test data set 
@@ -223,7 +223,8 @@ class CaffeNet:
 
 			#Write output
 			acts = ["ReLU","Sigmoid","TanH"]
-			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
+			fillers = ["Xavier","Gaussian"]
+			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler]),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
 
 if __name__ == '__main__':
 	t1=time.time()
