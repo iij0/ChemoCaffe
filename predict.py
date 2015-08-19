@@ -1,69 +1,94 @@
 """
 @Author: Keith Monaghan
-@Date: 7/24/15
-@Title: ChemoCaffe
-@Description: Automates the testing of multiple network configurations in Caffe
+@Date: 8/19/15
+@Title: ChemoCaffe-Predictor
+@Description: Trains a caffe model for a given configuration and generates predictions using the model
 """
 
 from net_spec import layers as L, params as P, to_proto
 import net_spec
 from caffe.proto import caffe_pb2
 import caffe
-from  sklearn.metrics import matthews_corrcoef,auc,roc_auc_score,recall_score,precision_score,f1_score,accuracy_score
 import csv
 import numpy as np
 import time
 import os
 import ConfigParser
 from sys import argv
+import h5py
 
 class CaffeNet:
 
-	_test_size=0
-	_batch_size=0
-	_epochs=0
-	_lr=0
-	_test_interval=0
-	_data_path= ""
+	_train_path= ""
+	_val_path=""
 	_solver=""
 	_output=""
 	_name=""
-	_folds=0
 	_train_size=0
-	_test_size=0
+	_val_size=0
 	_numClasses=0
+	_batch_size=0
+	_epochs=0
+	_lr=0
+
 	#Constructor 
 	#Initializes variables which are usually constant across different network configurations
-	def __init__(self,name,folds,numClasses,epochs,test_interval,lr,batch_size,data,solver,output):
-		self._folds=folds
-		self._test_interval=test_interval
-		self._data_path=data
+	def __init__(self,name,numClasses,epochs,batch_size,lr,data,val,solver,output):
+
+		self._train_path=data
 		self._solver=solver
 		self._output=output
+		self._val_path=val
+		self._test_size=0
 		self._epochs=epochs
 		self._lr=lr
 		self._batch_size=batch_size
-		self._numClasses=numClasses
 		self._name=name
-		self.getDataSize()
+		self._numClasses=numClasses
+		self.prepareData()
 		writer=csv.writer(open(output,'a'),delimiter=',')
-		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','Acc','MCC','RAUC','Recall','Precision','F1'])
+		header = "ID,"
+		for i in range(0,numClasses):
+			header+="P("+str(i)+"),"
+
+		writer.writerow(header.split(","))
 
 	#Helper Function for constructor
 	#Reads size of test data set 
 	#Converts epochs to iterations
-	def getDataSize(self):
-		reader1=csv.reader(open(self._data_path+'train_1.csv',"rU"))
-		reader2=csv.reader(open(self._data_path+'test_1.csv',"rU"))
+	#Converts data to hdf5 if neccessary
+	def prepareData(self):
+		reader1=csv.reader(open(self._train_path,"rU"))
+		reader2=csv.reader(open(self._val_path,"rU"))
 		self._train_size = 0
 		self._test_size = 0
+
+		trainLabels = []
+		trainFeatures = []
+
+		testIDs = []
+		testFeatures = []
+
 		for row in reader1:
 			self._train_size = self._train_size+1
+			trainLabels.append(row[0])
+			trainFeatures.append(row[1:])
 		for row in reader2:
 			self._test_size = self._test_size+1
+			testIDs.append(row[0])
+			testFeatures.append(row[1:])
+
+		if(not os.path.isfile(self._train_path.rstrip('.csv')+'.h5')):
+			with h5py.File(self._train_path.rstrip('.csv')+'.h5') as f:
+				f['HDF5Data1'] = np.asarray(trainLabels,dtype=np.float32)
+				f['HDF5Data1'] = np.asarray(trainFeatures,dtype=np.float32)
+
+		if(not os.path.isfile(self._val_path.rstrip('.csv')+'.h5')):
+			with h5py.File(self._val_path.rstrip('.csv')+'.h5') as f:
+				f['HDF5Data1'] = np.asarray(testIDs,dtype=np.float32)
+				f['HDF5Data1'] = np.asarray(testFeatures,dtype=np.float32)
 
 		self._epochs = (self._epochs*self._train_size)/self._batch_size
-		self._test_interval = (self._test_interval*self._train_size)/self._batch_size
 
 	#Builds the network with specified hyperparameters
 	def MakeNetwork(self,db,batch_size,layers,deploy,act,input_dropout,hidden_dropout,L2,filler):
@@ -142,105 +167,71 @@ class CaffeNet:
 					if 'max_iter:' in line:
 						new_file.write('max_iter:'+str(self._epochs)+"\n")
 					elif 'snapshot:' in line:
-						new_file.write('snapshot:'+str(self._test_interval)+"\n")
+						new_file.write('snapshot:'+str(self._epochs)+"\n")
 					elif 'base_lr:' in line:
 						new_file.write('base_lr:'+str(self._lr)+"\n")
+					elif 'test_interval:' in line:
+						new_file.write('test_interval:99999999\n')
 					elif 'snapshot_prefix:' in line:
-						new_file.write('snapshot_prefix:'+self._name+'\n')
+						new_file.write('snapshot_prefix:"'+self._name+'"\n')
 					else:
 						new_file.write(line)
 		os.rename('solver_new.prototxt',self._solver)
 
 		temp = []
 
-		for i in range(0,self._folds):
 
-			#Write text files specifying the databse path
-			print "Writing txt files"
-			with open('train.txt', 'w') as f:
-				f.write(self._data_path+'train_' + str(i+1) + '.h5' + '\n')
-			with open('test.txt', 'w') as f:
-				f.write(self._data_path+'test_' + str(i+1) + '.h5' + '\n')
-			print "Done"
+		#Write text files specifying the databse path
+		print "Writing txt files"
+		with open('train.txt', 'w') as f:
+			f.write(self._train_path.rstrip('.csv')+'.h5'+'\n')
+		with open('test.txt', 'w') as f:
+			f.write(self._val_path.rstrip('.csv')+'.h5'+'\n')
+		print "Done"
 
-			#Get Solver
-			solver = caffe.SGDSolver(self._solver)
-	
-			#Train network
-			solver.solve()
+		#Get Solver
+		solver = caffe.SGDSolver(self._solver)
 
-			for x in range(0,int(self._epochs/self._test_interval)):
-				PRETRAINED = self._name+'_iter_' + str((x+1)*self._test_interval) + '.caffemodel'
+		#Train network
+		solver.solve()
 
-				#Load network
-				net = caffe.Net(MODEL_FILE, PRETRAINED, caffe.TEST)
+		PRETRAINED = self._name+'_iter_'+str(self._epochs)+'.caffemodel'
 
-				#Forward data
-				net.forward()
+		#Load network
+		net = caffe.Net(MODEL_FILE, PRETRAINED, caffe.TEST)
 
-				#Record results
-				results = net.blobs['Softmax1'].data
+		#Forward data
+		net.forward()
 
-				#Read test labels
-				test_size = 0
-				y_test=[]
-				reader=csv.reader(open(self._data_path + 'test_'+str(i+1)+'.csv',"rU"),delimiter=',')
-				for row in reader:
-					y_test.append(int(row[0]))
-					test_size = test_size+1
+		#Record results
+		results = net.blobs['Softmax1'].data
 
-				#Read predictions
-				y_pred = []
-				y_pred_scores = []
-				for y in range(0,test_size):
-					y_pred.append(int(results[y].argmax()))
-					y_pred_scores.append(float(results[y][1][0][0]))
-
-				#Score Predictions
-				acc=accuracy_score(y_test, y_pred)
-				mcc=matthews_corrcoef(y_test,y_pred)
-				RAUC=roc_auc_score(y_test,y_pred_scores)
-				Recall=recall_score(y_test, y_pred,pos_label=1)
-				Precision=precision_score(y_test, y_pred,pos_label=1)
-				F1_score=f1_score(y_test, y_pred,pos_label=1)
-
-				#Store scores in temporary list
-				temp.append([self._test_interval*(x+1),acc,mcc,RAUC,Recall,Precision,F1_score])
+		#Get test IDs
+		testIDs = []
+		reader=csv.reader(open(self._val_path,"rU"))
+		for row in reader:
+			testIDs.append(row[0])
 
 		#Open output writer	in append mode	
-		writer=csv.writer(open(self._output,'a'),delimiter=',')
+		writer=open(self._output,'a')
 
-		#Average results for each test interval and print to output file
-		for y in range(0,self._epochs/self._test_interval):
-			epochs=0
-			acc=0
-			mcc=0
-			RAUC=0
-			Recall=0
-			Precision=0
-			F1_score=0
-			for x in range(y,len(temp),self._epochs/self._test_interval):
-				epochs=((temp[x][0]*self._batch_size)/self._train_size)
-				acc+=temp[x][1]
-				mcc+=temp[x][2]
-				RAUC+=temp[x][3]
-				Recall+=temp[x][4]
-				Precision+=temp[x][5]
-				F1_score+=temp[x][6]
+		#Write results to output file
+		for x in range(0,self._test_size):
+			temp = str(testIDs[x])+','
+			for y in range(0,self._numClasses):
+				temp+=str(results[x][y][0][0])+','
+			temp = temp.rstrip(',')
+			temp += '\n'
+			writer.write(temp)
 
-			#Write output
-			acts = ["ReLU","Sigmoid","TanH"]
-			fillers = ["Xavier","Gaussian"]
-			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler-1]),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
 
 if __name__ == '__main__':
 	t1=time.time()
-
 	config = ConfigParser.RawConfigParser()
 	config.read(argv[1])
 	
 	try:
-		test=CaffeNet(config.getint('DEFAULT','folds'),config.getint('DEFAULT','number of classes'),config.getint('DEFAULT','epochs'),config.getint('DEFAULT','test interval'), config.getfloat('DEFAULT','learning rate'),config.getint('DEFAULT','batch size'), config.get('DEFAULT','data path'), config.get('DEFAULT','solver path'), config.get('DEFAULT','output path'))
+		test=CaffeNet(config.get('DEFAULT','name'),config.getint('DEFAULT','number of classes'),config.getint('DEFAULT','epochs'), config.getint('DEFAULT','batch size'), config.getfloat('DEFAULT','learning rate'), config.get('DEFAULT','data path'), config.get('DEFAULT','prediction path'), config.get('DEFAULT','solver path'), config.get('DEFAULT','output path'))
 	except ValueError:
 		raise Exception('Value Error in DEFAULT section')
 	
@@ -268,12 +259,9 @@ if __name__ == '__main__':
 			for n in layers:
 				assert n>0, 'Invalid # of neurons for '+section+'.  # of neurons must be positive.'
 
-			for n in range(0,config.getint(section,'folds')):
-				assert os.path.isfile(config.get(section,'data path')+'train_'+str((n+1))+'.csv'), 'Error fetching data.  Only '+n+' folds found'
-				assert os.path.isfile(config.get(section,'data path')+'test_'+str((n+1))+'.csv'), 'Error fetching data.  Only '+n+' folds found'
-			
+			assert os.path.isfile(config.get(section,'data path')), 'Error fetching training data.'
+			assert os.path.isfile(config.get(section,'prediction path')), 'Error fetching prediction data.'		
 			assert os.path.isfile(config.get(section,'solver path'))
-
 			break
 
 		except AssertionError, e:
@@ -288,7 +276,7 @@ if __name__ == '__main__':
 				reconstruct = True
 
 		if(reconstruct):
-			test=CaffeNet(config.getint('DEFAULT','folds'),config.getint('DEFAULT','number of classes'),config.getint('DEFAULT','epochs'),config.getint('DEFAULT','test interval'), config.getfloat('DEFAULT','learning rate'),config.getint('DEFAULT','batch size'), config.get('DEFAULT','data path'), config.get('DEFAULT','solver path'), config.get('DEFAULT','output path'))
+			test=CaffeNet(config.get('DEFAULT','name'),config.getint('DEFAULT','number of classes'),config.getint('DEFAULT','epochs'), config.getint('DEFAULT','batch size'), config.getfloat('DEFAULT','learning rate'), config.get('DEFAULT','data path'), config.get('DEFAULT','prediction path'), config.get('DEFAULT','solver path'), config.get('DEFAULT','output path'))
 
 		test.testConfig([int(n) for n in config.get(section,'network').split(',')],int(config.get(section,'activation function')),float(config.get(section,'input dropout')),float(config.get(section,'hidden dropout')),config.get(section,'l2 regularization').lower()=='true',int(config.get(section,'filler')))
 
