@@ -86,9 +86,9 @@ class CaffeNet:
 
 			else:
 				if(filler==1):
-					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'))
+					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='xavier'),bias_filler=dict(type='xavier'),param=[dict(decay_mult=0)])
 				elif(filler==2):
-					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='gaussian',std=0.01),bias_filler=dict(type='gaussian',std=0.01))
+					top = L.InnerProduct(top, num_output=layers[x], weight_filler=dict(type='gaussian',std=0.01),bias_filler=dict(type='gaussian',std=0.01),param=[dict(decay_mult=0)])
 
 	
 			if(act == 1):
@@ -146,7 +146,7 @@ class CaffeNet:
 					elif 'base_lr:' in line:
 						new_file.write('base_lr:'+str(self._lr)+"\n")
 					elif 'snapshot_prefix:' in line:
-						new_file.write('snapshot_prefix:'+self._name+'\n')
+						new_file.write('snapshot_prefix:"'+self._name+'"\n')
 					else:
 						new_file.write(line)
 		os.rename('solver_new.prototxt',self._solver)
@@ -240,7 +240,7 @@ if __name__ == '__main__':
 	config.read(argv[1])
 	
 	try:
-		test=CaffeNet(config.getint('DEFAULT','folds'),config.getint('DEFAULT','number of classes'),config.getint('DEFAULT','epochs'),config.getint('DEFAULT','test interval'), config.getfloat('DEFAULT','learning rate'),config.getint('DEFAULT','batch size'), config.get('DEFAULT','data path'), config.get('DEFAULT','solver path'), config.get('DEFAULT','output path'))
+		test=CaffeNet(config.get('DEFAULT','name'),config.getint('DEFAULT','folds'),config.getint('DEFAULT','number of classes'),config.getint('DEFAULT','epochs'),config.getint('DEFAULT','test interval'), config.getfloat('DEFAULT','learning rate'),config.getint('DEFAULT','batch size'), config.get('DEFAULT','data path'), config.get('DEFAULT','solver path'), config.get('DEFAULT','output path'))
 	except ValueError:
 		raise Exception('Value Error in DEFAULT section')
 	
