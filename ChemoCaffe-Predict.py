@@ -80,12 +80,12 @@ class CaffeNet:
 
 		if(not os.path.isfile(self._train_path.rstrip('.csv')+'.h5')):
 			with h5py.File(self._train_path.rstrip('.csv')+'.h5') as f:
-				f['HDF5Data1'] = np.asarray(trainLabels,dtype=np.float32)
+				f['HDF5Data2'] = np.asarray(trainLabels,dtype=np.float32)
 				f['HDF5Data1'] = np.asarray(trainFeatures,dtype=np.float32)
 
 		if(not os.path.isfile(self._val_path.rstrip('.csv')+'.h5')):
 			with h5py.File(self._val_path.rstrip('.csv')+'.h5') as f:
-				f['HDF5Data1'] = np.asarray(testIDs,dtype=np.float32)
+				f['HDF5Data2'] = np.asarray(testIDs,dtype=np.float32)
 				f['HDF5Data1'] = np.asarray(testFeatures,dtype=np.float32)
 
 		self._epochs = (self._epochs*self._train_size)/self._batch_size
@@ -196,7 +196,8 @@ class CaffeNet:
 		solver.solve()
 
 		PRETRAINED = self._name+'_iter_'+str(self._epochs)+'.caffemodel'
-
+		
+		print PRETRAINED
 		#Load network
 		net = caffe.Net(MODEL_FILE, PRETRAINED, caffe.TEST)
 
