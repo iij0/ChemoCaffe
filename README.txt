@@ -1,8 +1,8 @@
 
-The python caffe wrapper: ChemoCaffe.py
+ChemoCaffe is a python wrapper for Caffe.  It's purpose is to automate the training and testing of DNN's while only having to modify one configuration file.
 
 
-To use ChemoCaffe requires the bellow listed software installed:
+ChemoCaffe requires the following software:
 ================================================================================
 List of software required:
 1) Caffe rc3 : https://github.com/BVLC/caffe/releases/tag/rc3
