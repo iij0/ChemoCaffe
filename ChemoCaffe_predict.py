@@ -5,8 +5,7 @@
 @Description: Trains a caffe model for a given configuration and generates predictions using the model
 """
 
-from net_spec import layers as L, params as P, to_proto
-import net_spec
+from caffe import layers as L, params as P, to_proto
 from caffe.proto import caffe_pb2
 import caffe
 import csv
