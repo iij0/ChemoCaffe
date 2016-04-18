@@ -46,7 +46,7 @@ class CaffeNet:
 		self._name=name
 		self.getDataSize()
 		writer=csv.writer(open(output,'a'),delimiter=',')
-		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','AvAUC','Std_AUC','AvMCC','Std_MCC','AvFSCORE','Std_FSCORE','AvRecall','Std_Recall','AvPrecision','Std_Precision','AvAccuracy'])
+		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','Acc','MCC','RAUC','Recall','Precision','F1'])
 
 	#Helper Function for constructor
 	#Reads size of test data set 
@@ -193,7 +193,7 @@ class CaffeNet:
 				y_pred_scores = []
 				for y in range(0,test_size):
 					y_pred.append(int(results[y].argmax()))
-					y_pred_scores.append(float(results[y][1][0][0]))
+					y_pred_scores.append(float(results[y][1]))
 
 				#Score Predictions
 				acc=accuracy_score(y_test, y_pred)
@@ -212,42 +212,25 @@ class CaffeNet:
 		#Average results for each test interval and print to output file
 		for y in range(0,self._epochs/self._test_interval):
 			epochs=0
-			acc=[]
-			mcc=[]
-			RAUC=[]
-			Recall=[]
-			Precision=[]
-			F1_score=[]
+			acc=0
+			mcc=0
+			RAUC=0
+			Recall=0
+			Precision=0
+			F1_score=0
 			for x in range(y,len(temp),self._epochs/self._test_interval):
 				epochs=((temp[x][0]*self._batch_size)/self._train_size)
-				acc.append(float(temp[x][1]))
-				mcc.append(float(temp[x][2]))
-				RAUC.append(float(temp[x][3]))
-				Recall.append(float(temp[x][4]))
-				Precision.append(float(temp[x][5]))
-				F1_score.append(float(temp[x][6]))
-			
-			print "\n\n"
-			print mcc
-			print RAUC
-			print "\n\n"
+				acc+=temp[x][1]
+				mcc+=temp[x][2]
+				RAUC+=temp[x][3]
+				Recall+=temp[x][4]
+				Precision+=temp[x][5]
+				F1_score+=temp[x][6]
+
 			#Write output
 			acts = ["ReLU","Sigmoid","TanH"]
 			fillers = ["Xavier","Gaussian"]
-			
-			AvAUC=sum(RAUC)/float(self._folds)
-			Std_AUC=np.std(RAUC)
-			AvMCC=sum(mcc)/float(self._folds)
-			Std_MCC=np.std(mcc)
-			AvFSCORE=sum(F1_score)/float(self._folds)
-			Std_FSCORE=np.std(F1_score)
-			AvRecall=sum(Recall)/float(self._folds)
-			Std_Recall=np.std(Recall)
-			AvPrecision=sum(Precision)/float(self._folds)
-			Std_Precision=np.std(Precision)
-			AvAccuracy=sum(acc)/float(self._folds)	
-
-			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler-1]),str(AvAUC),str(Std_AUC),str(AvMCC),str(Std_MCC),str(AvFSCORE),str(Std_FSCORE),str(AvRecall),str(Std_Recall),str(AvPrecision),str(Std_Precision),str(AvAccuracy)])
+			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler-1]),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
 
 if __name__ == '__main__':
 	t1=time.time()
@@ -285,8 +268,8 @@ if __name__ == '__main__':
 				assert n>0, 'Invalid # of neurons for '+section+'.  # of neurons must be positive.'
 
 			for n in range(0,config.getint(section,'folds')):
-				assert os.path.isfile(config.get(section,'data path')+'train_'+str((n+1))+'.csv'), 'Error fetching data.  Only '+str(n)+' folds found'
-				assert os.path.isfile(config.get(section,'data path')+'test_'+str((n+1))+'.csv'), 'Error fetching data.  Only '+str(n)+' folds found'
+				assert os.path.isfile(config.get(section,'data path')+'train_'+str((n+1))+'.csv'), 'Error fetching data.  Only '+n+' folds found'
+				assert os.path.isfile(config.get(section,'data path')+'test_'+str((n+1))+'.csv'), 'Error fetching data.  Only '+n+' folds found'
 			
 			assert os.path.isfile(config.get(section,'solver path'))
 

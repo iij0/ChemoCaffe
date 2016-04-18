@@ -219,7 +219,7 @@ class CaffeNet:
 		for x in range(0,self._test_size):
 			temp = str(testIDs[x])+','
 			for y in range(0,self._numClasses):
-				temp+=str(results[x][y][0][0])+','
+				temp+=str(results[x][y])+','
 			temp = temp.rstrip(',')
 			temp += '\n'
 			writer.write(temp)
