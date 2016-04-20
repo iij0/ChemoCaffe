@@ -46,7 +46,7 @@ class CaffeNet:
 		self._name=name
 		self.getDataSize()
 		writer=csv.writer(open(output,'a'),delimiter=',')
-		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','Acc','MCC','RAUC','Recall','Precision','F1'])
+		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','Acc','Acc_std','MCC','MCC_std','RAUC','RAUC_std','Recall','Recall_std','Precision','Precision_std','F1','F1_std'])
 
 	#Helper Function for constructor
 	#Reads size of test data set 
@@ -206,6 +206,7 @@ class CaffeNet:
 				#Store scores in temporary list
 				temp.append([self._test_interval*(x+1),acc,mcc,RAUC,Recall,Precision,F1_score])
 
+
 		#Open output writer	in append mode	
 		writer=csv.writer(open(self._output,'a'),delimiter=',')
 
@@ -218,19 +219,38 @@ class CaffeNet:
 			Recall=0
 			Precision=0
 			F1_score=0
+			acc_list = []
+			mcc_list = []
+			rauc_list = []
+			recall_list = []
+			precision_list = []
+			f1_list = []
 			for x in range(y,len(temp),self._epochs/self._test_interval):
 				epochs=((temp[x][0]*self._batch_size)/self._train_size)
 				acc+=temp[x][1]
+				acc_list.append(temp[x][1])
 				mcc+=temp[x][2]
+				mcc_list.append(temp[x][2])
 				RAUC+=temp[x][3]
+				rauc_list.append(temp[x][3])
 				Recall+=temp[x][4]
+				recall_list.append(temp[x][4])
 				Precision+=temp[x][5]
+				precision_list.append(temp[x][5])
 				F1_score+=temp[x][6]
+				f1_list.append(temp[x][6])
+
+			acc_std=np.std(acc_list)
+			mcc_std=np.std(mcc_list)
+			rauc_std=np.std(rauc_list)
+			recall_std=np.std(recall_list)
+			precision_std=np.std(precision_list)
+			f1_std=np.std(f1_list)
 
 			#Write output
 			acts = ["ReLU","Sigmoid","TanH"]
 			fillers = ["Xavier","Gaussian"]
-			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler-1]),acc/self._folds,mcc/self._folds,RAUC/self._folds,Recall/self._folds,Precision/self._folds,F1_score/self._folds])
+			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler-1]),acc/self._folds,acc_std,mcc/self._folds,mcc_std,RAUC/self._folds,rauc_std,Recall/self._folds,recall_std,Precision/self._folds,precision_std,F1_score/self._folds,f1_std])
 
 if __name__ == '__main__':
 	t1=time.time()
