@@ -46,8 +46,7 @@ class CaffeNet:
 		self._name=name
 		self.getDataSize()
 		writer=csv.writer(open(output,'a'),delimiter=',')
-		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','Acc','Acc_std','MCC','MCC_std','RAUC','RAUC_std','Recall','Recall_std','Precision','Precision_std','F1','F1_std'])
-
+		writer.writerow(['Epochs','Layers','Activation','Input dropout','Dropout','L2','Filler','RAUC','RAUC_std','MCC','MCC_std','F1','F1_std','Recall','Recall_std','Precision','Precision_std','Acc','Acc_std'])
 	#Helper Function for constructor
 	#Reads size of test data set 
 	#Converts epochs to iterations
@@ -213,44 +212,39 @@ class CaffeNet:
 		#Average results for each test interval and print to output file
 		for y in range(0,self._epochs/self._test_interval):
 			epochs=0
-			acc=0
-			mcc=0
-			RAUC=0
-			Recall=0
-			Precision=0
-			F1_score=0
-			acc_list = []
-			mcc_list = []
-			rauc_list = []
-			recall_list = []
-			precision_list = []
-			f1_list = []
+			acc=[]
+			mcc=[]
+			RAUC=[]
+			Recall=[]
+			Precision=[]
+			F1_score=[]
 			for x in range(y,len(temp),self._epochs/self._test_interval):
 				epochs=((temp[x][0]*self._batch_size)/self._train_size)
-				acc+=temp[x][1]
-				acc_list.append(temp[x][1])
-				mcc+=temp[x][2]
-				mcc_list.append(temp[x][2])
-				RAUC+=temp[x][3]
-				rauc_list.append(temp[x][3])
-				Recall+=temp[x][4]
-				recall_list.append(temp[x][4])
-				Precision+=temp[x][5]
-				precision_list.append(temp[x][5])
-				F1_score+=temp[x][6]
-				f1_list.append(temp[x][6])
-
-			acc_std=np.std(acc_list)
-			mcc_std=np.std(mcc_list)
-			rauc_std=np.std(rauc_list)
-			recall_std=np.std(recall_list)
-			precision_std=np.std(precision_list)
-			f1_std=np.std(f1_list)
-
+				acc.append(float(temp[x][1]))
+				mcc.append(float(temp[x][2]))
+				RAUC.append(float(temp[x][3]))
+				Recall.append(float(temp[x][4]))
+				Precision.append(float(temp[x][5]))
+				F1_score.append(float(temp[x][6]))
+			
 			#Write output
 			acts = ["ReLU","Sigmoid","TanH"]
 			fillers = ["Xavier","Gaussian"]
-			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler-1]),acc/self._folds,acc_std,mcc/self._folds,mcc_std,RAUC/self._folds,rauc_std,Recall/self._folds,recall_std,Precision/self._folds,precision_std,F1_score/self._folds,f1_std])
+			
+			AvAUC=sum(RAUC)/float(self._folds)
+			Std_AUC=np.std(RAUC)
+			AvMCC=sum(mcc)/float(self._folds)
+			Std_MCC=np.std(mcc)
+			AvFSCORE=sum(F1_score)/float(self._folds)
+			Std_FSCORE=np.std(F1_score)
+			AvRecall=sum(Recall)/float(self._folds)
+			Std_Recall=np.std(Recall)
+			AvPrecision=sum(Precision)/float(self._folds)
+			Std_Precision=np.std(Precision)
+			AvAccuracy=sum(acc)/float(self._folds)	
+			Std_Accuracy=np.std(acc)
+
+			writer.writerow([epochs+1,str(layers),acts[act-1],str(input_dropout),str(hidden_dropout),str(L2),str(fillers[filler-1]),str(AvAUC),str(Std_AUC),str(AvMCC),str(Std_MCC),str(AvFSCORE),str(Std_FSCORE),str(AvRecall),str(Std_Recall),str(AvPrecision),str(Std_Precision),str(AvAccuracy),str(Std_Accuracy)])
 
 if __name__ == '__main__':
 	t1=time.time()
