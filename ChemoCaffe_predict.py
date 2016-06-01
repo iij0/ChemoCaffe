@@ -252,7 +252,6 @@ if __name__ == '__main__':
 			assert float(config.get(section,'learning rate')) > 0, 'Invalid choice for '+section+'\'s learning rate.  Value must be positive. (Recommended: 0.01)'
 			assert int(config.get(section,'batch size')) > 0, 'Invalid choice for '+section+'\'s batch size.  Value must be positive. (Recommended: 256)'
 			assert int(config.get(section,'epochs')) > 0, 'Invalid choice for '+section+'\'s # of epochs.  Value must be positive. (Recommended: 100)'
-			assert int(config.get(section,'test interval')) > 0, 'Invalid choice for '+section+'\'s # of epochs.  Value must be positive. (Recommended: 10)'
 			assert float(config.get(section,'weight decay')) > 0 and float(config.get(section,'weight decay')) < 1, 'Invalid choice for '+section+'\'s weight decay.  Value must be between 0 and 1 (Recommended: 0.0005)'
 			assert bool(config.get(section,'name')), "Error: No name given"
 			layers = [int(n) for n in config.get(section,'network').split(',')]
